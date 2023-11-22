@@ -2,7 +2,11 @@
 clearvars
 clc
 
-file = '../data/002_AAC__20230921_active10_400nm_probtip_014_crop.nd2';
+warning off
+
+%file = '../data/002_AAC__20230921_active10_400nm_probtip_014_crop.nd2';
+
+file = '../data/002_AAC__20230921_Passive_400nm_probtip_001.nd2';
 
 reader = BioformatsImage(file);
 
@@ -11,7 +15,7 @@ trackerBG = LAPLinker;
 %Initialize struct to hold particle information
 particlePos = struct;
 
-vid = VideoWriter('../processed/20231122_active.avi');
+vid = VideoWriter('../processed/20231122_passive.avi');
 vid.FrameRate = 5;
 open(vid)
 
@@ -19,12 +23,27 @@ for iT = 1:reader.sizeT
 
     I = getPlane(reader, 1, 1, iT);
 
+    %Register image
+    if iT == 1
+
+        refImg = I;
+
+    else
+
+        pxShift = xcorrreg(refImg, I);
+
+        I = circshift(I, pxShift);
+        
+        refImg = I;
+
+    end
+
     %Segment particle
     g1 = imgaussfilt(I, 3);
     g2 = imgaussfilt(I, 6);
     Idiff = g1 - g2;
     
-    spotMask = Idiff > 300;
+    spotMask = Idiff > 2000;
     %imshowpair(Idiff, spotMask);
 
     %Get position, then fit a Guassian to better localize
@@ -46,6 +65,8 @@ for iT = 1:reader.sizeT
         yFit = yFit - median(yFit);
 
         [xFit,  yFit] = meshgrid(xFit, yFit);
+
+        %opts = optimset('display','off');
 
         fittedParams = lsqnonlin(@(params) fngauss(params, xFit, yFit) - double(spotImgCrop), ...
             [double(max(spotImgCrop(:))), 0, 0, 3, 3, mean(double(spotImgCrop(:)))]);
@@ -98,7 +119,9 @@ for iT = 1:reader.sizeT
 
     %Make the output image
     Iout = double(I);
-    Iout = (Iout - min(Iout(:)))/(3000 - min(Iout(:)));
+    Iout = (Iout - min(Iout(:)))/(20000 - min(Iout(:)));
+    Iout(Iout > 1) = 1;
+    Iout(Iout < 0) = 0;
     %imshow(Iout)
 
     if ~isempty(centers)
@@ -117,4 +140,4 @@ for iT = 1:reader.sizeT
 end
 close(vid)
 
-save('../processed/20231122_active.mat', 'trackerBG', 'particlePos')
+save('../processed/20231122_passive.mat', 'trackerBG', 'particlePos')

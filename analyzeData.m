@@ -1,7 +1,7 @@
 clearvars
 clc
 
-load('../processed/20231122_active.mat');
+load('../processed/20231122_passive.mat');
 
 %Get average position of background beads
 
